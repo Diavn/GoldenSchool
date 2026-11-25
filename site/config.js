@@ -1,3 +1,3 @@
-// Public information only. No credentials, admin URLs, contact records or student data.
-// Enable global and individual flags only after owner sign-off and live tests.
-window.GS_CONFIG = {admissionsOpen:false,forms:{enrollment:{enabled:false,url:""},returning:{enabled:false,url:""},consultation:{enabled:false,url:""},staff:{enabled:false,url:""}},classes:[]};
+// Public config. Never store secrets, admin/edit URLs, or personal data.
+// Leave all URLs blank and flags false until approved; website flags are not Forms access control.
+window.GS_CONFIG = {admissionsOpen:false,forms:{enrollment:{enabled:false,url:"",prefill:{}},returning:{enabled:false,url:"",prefill:{}},consultation:{enabled:false,url:"",prefill:{}},staff:{enabled:false,url:"",prefill:{}}},classes:[]};
