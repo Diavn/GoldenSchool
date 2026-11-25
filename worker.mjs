@@ -10,6 +10,14 @@ export function validateSnapshot(s,now=Date.now()){
   }return true;
 }
 function equal(a,b){if(typeof a!=='string'||typeof b!=='string'||a.length!==b.length)return false;let n=0;for(let i=0;i<a.length;i++)n|=a.charCodeAt(i)^b.charCodeAt(i);return n===0;}
+function authFailure(secret,header){
+  if(typeof secret!=='string'||secret.length===0)return 'SECRET_MISSING';
+  if(secret.length!==64||!/^[a-f0-9]{64}$/.test(secret))return 'SECRET_FORMAT';
+  if(!header)return 'AUTH_HEADER_MISSING';
+  if(!/^Bearer [a-f0-9]{64}$/.test(header)||header.length!==71)return 'AUTH_HEADER_FORMAT';
+  if(!equal(header,'Bearer '+secret))return 'TOKEN_MISMATCH';
+  return null;
+}
 function json(v,status=200){return new Response(JSON.stringify(v),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});}
 async function bounded(req){const reader=req.body?.getReader();if(!reader)throw Error();const pieces=[];let length=0;while(true){const {done,value}=await reader.read();if(done)break;length+=value.byteLength;if(length>MAX){await reader.cancel();throw Error();}pieces.push(value);}const bytes=new Uint8Array(length);let i=0;for(const p of pieces){bytes.set(p,i);i+=p.length;}return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));}
 export default {async fetch(req,env){
@@ -21,7 +29,9 @@ export default {async fetch(req,env){
       return validateSnapshot(s)?json(s):json({version:'0.3.2',generatedAt:null,classes:[]});
     }
     if(req.method!=='POST')return json({ok:false},405);
-    if(!/^[a-f0-9]{64}$/.test(env.GS32_TOKEN||'')||!equal(req.headers.get('Authorization'),'Bearer '+env.GS32_TOKEN))return json({ok:false},403);
+    const reason=authFailure(env.GS32_TOKEN,req.headers.get('Authorization'));
+    if(reason){console.warn('GS32_AUTH '+reason);return json({ok:false},403);}
+    console.log('GS32_AUTH PASS');
     if(!/^application\/json(?:\s*;|$)/i.test(req.headers.get('Content-Type')||''))return json({ok:false},415);
     let s;try{s=await bounded(req);}catch{return json({ok:false},400);}
     const now=Date.now();if(!validateSnapshot(s,now)||Date.parse(s.generatedAt)<now-120000)return json({ok:false},400);
