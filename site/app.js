@@ -19,4 +19,20 @@ function updateLinks(){let open=0;for(const a of document.querySelectorAll('.for
 function choose(code,className){const c=COURSES.find(x=>x[0]===code);if(!c)return;chosenCode=code;updateLinks();const link=selectedForm(cfg,'enrollment',code),base=usableForm(cfg,'enrollment');const hint=!link?' Biểu mẫu chưa mở.':link!==base?' Chương trình được điền sẵn trong Form đăng ký lần đầu; vui lòng kiểm tra trước khi gửi.':' Hãy chọn chương trình tương ứng trong Form.';$('selection').hidden=false;$('selection').textContent='Quan tâm: '+c[1]+(className?' · '+className+' (mã lớp chưa được chuyển vào Form)':'')+'.'+hint+' Lựa chọn này chưa được gửi.';location.hash='apply';$('selection').setAttribute('tabindex','-1');$('selection').focus();}
 for(const b of document.querySelectorAll('.choose'))b.addEventListener('click',()=>choose(b.dataset.course));
 updateLinks();
-const ids=COURSES.map(c=>c[0]);const seen=new Set();for(const c of Array.isArray(cfg.classes)?cfg.classes:[]){if(!publicClass(c,ids)||seen.has(c.id))continue;seen.add(c.id);const a=el('article');a.append(el('span',c.course+' · '+c.id,'tag'),el('h3',c.title),el('p',c.schedule+' · '+({ONLINE:'Trực tuyến',OFFLINE:'Trực tiếp',HYBRID:'Kết hợp'}[c.mode])),el('p','Học phí công bố: '+c.fee.toLocaleString('vi-VN')+' đ'),el('p','Chỗ tham khảo: '+c.seats,'muted'));const b=el('button','Quan tâm lớp này','button secondary');b.type='button';b.addEventListener('click',()=>choose(c.course,c.title));a.append(b);$('class-list').append(a);}$('class-empty').hidden=seen.size>0;
+async function loadCatalogue(){
+  const root=$('class-list'),empty=$('class-empty');
+  root.replaceChildren();empty.hidden=false;
+  if(cfg.catalogueEnabled!==true){empty.textContent='Hiện chưa có thông tin lớp được công bố.';return;}
+  try{
+    const res=await fetch('/api/catalogue',{cache:'no-store',credentials:'omit',redirect:'error'});
+    if(!res.ok)throw Error();const data=await res.json();
+    if(data.version!=='0.3.2'||!Array.isArray(data.classes)||data.classes.length>30)throw Error();
+    const ids=COURSES.map(c=>c[0]),seen=new Set();
+    for(const c of data.classes){if(!publicClass(c,ids)||seen.has(c.id))continue;seen.add(c.id);
+      const a=el('article');a.append(el('span',c.course+' · '+c.id,'tag'),el('h3',c.title),el('p',c.schedule+' · '+({ONLINE:'Trực tuyến',OFFLINE:'Trực tiếp',HYBRID:'Kết hợp'}[c.mode])),el('p','Học phí công bố: '+c.fee.toLocaleString('vi-VN')+' đ'),el('p','Chỗ tham khảo: '+c.seats,'muted'));
+      const b=el('button','Quan tâm lớp này','button secondary');b.type='button';b.addEventListener('click',()=>choose(c.course,c.title));a.append(b);root.append(a);
+      const ms=Math.max(0,Date.parse(c.expires)-Date.now());setTimeout(()=>{a.remove();if(!root.children.length){empty.hidden=false;empty.textContent='Thông tin lớp đã hết hạn. Vui lòng tải lại trang.';}},ms);
+    }empty.hidden=seen.size>0;empty.textContent='Hiện chưa có thông tin lớp được công bố.';
+  }catch{root.replaceChildren();empty.hidden=false;empty.textContent='Chưa tải được thông tin lớp. Vui lòng thử lại sau.';}
+}
+loadCatalogue();
